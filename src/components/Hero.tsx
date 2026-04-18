@@ -38,7 +38,7 @@ export function Hero() {
           <div className="flex flex-wrap gap-4">
             <Button
               size="lg"
-              className="bg-white text-foreground hover:bg-white/90 font-semibold shadow-leaf"
+              className="bg-white text-[hsl(140_25%_12%)] hover:bg-white/90 font-semibold shadow-leaf"
               onClick={() => scrollTo("campaign")}
             >
               Generate a campaign
