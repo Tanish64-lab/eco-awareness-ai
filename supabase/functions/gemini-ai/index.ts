@@ -1,11 +1,12 @@
 // Gemini AI edge function — handles campaign, chat, quiz, and tip modes.
 // Includes automatic retry + model fallback for 429/503 errors.
+// Supports a per-request `userApiKey` that overrides the server GEMINI_API_KEY.
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+const SERVER_GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 
 const SYSTEM_PROMPTS: Record<string, string> = {
   campaign: `You are an award-winning environmental campaign strategist. When the user gives an environmental issue (and optionally a TONE: Formal, Creative, or Emotional), generate a complete awareness campaign.
@@ -36,8 +37,8 @@ Keep it punchy, factual, hopeful, environment-only. If asked off-domain, return 
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function callGemini(model: string, payload: unknown): Promise<{ ok: true; text: string } | { ok: false; status: number; message: string }> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+async function callGemini(model: string, payload: unknown, apiKey: string): Promise<{ ok: true; text: string } | { ok: false; status: number; message: string }> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   const resp = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -55,18 +56,23 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    if (!GEMINI_API_KEY) {
-      return new Response(JSON.stringify({ error: "GEMINI_API_KEY not configured" }), {
+    const body = await req.json();
+    const userApiKey: string | undefined = typeof body.userApiKey === "string" && body.userApiKey.trim()
+      ? body.userApiKey.trim()
+      : undefined;
+    const apiKey = userApiKey ?? SERVER_GEMINI_API_KEY;
+
+    if (!apiKey) {
+      return new Response(JSON.stringify({ error: "No Gemini API key available. Add your own key in Settings." }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const body = await req.json();
     const mode: string = body.mode ?? "chat";
     const messages: Array<{ role: "user" | "assistant"; content: string }> = body.messages ?? [];
     const temperature: number = typeof body.temperature === "number" ? body.temperature : 0.7;
     const topP: number = typeof body.topP === "number" ? body.topP : 0.9;
-    const requested: string = body.model ?? "gemini-2.0-flash";
+    const requested: string = body.model ?? "gemini-2.5-flash";
 
     const systemPrompt = SYSTEM_PROMPTS[mode] ?? SYSTEM_PROMPTS.chat;
 
@@ -84,7 +90,7 @@ Deno.serve(async (req) => {
     };
 
     // Build a fallback chain: requested model first, then alternates that aren't already in the list.
-    const fallbacks = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite"];
+    const fallbacks = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"];
     const chain = [requested, ...fallbacks.filter((m) => m !== requested)];
 
     let lastErr: { status: number; message: string } | null = null;
@@ -93,9 +99,9 @@ Deno.serve(async (req) => {
       const model = chain[i];
       // Up to 2 retries per model for transient 503s with short backoff
       for (let attempt = 0; attempt < 2; attempt++) {
-        const result = await callGemini(model, payload);
+        const result = await callGemini(model, payload, apiKey);
         if (result.ok) {
-          return new Response(JSON.stringify({ text: result.text, modelUsed: model }), {
+          return new Response(JSON.stringify({ text: result.text, modelUsed: model, keySource: userApiKey ? "user" : "server" }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
@@ -113,9 +119,11 @@ Deno.serve(async (req) => {
 
     const friendly =
       lastErr?.status === 429
-        ? "Gemini quota exhausted on every model. Check your API key billing/limits."
+        ? "Gemini quota exhausted on every model. Try a different model, or paste your own API key in Settings."
         : lastErr?.status === 503
         ? "Gemini servers are overloaded right now. Please try again in a moment."
+        : lastErr?.status === 400 && userApiKey
+        ? "Your API key was rejected by Gemini. Double-check it in Settings."
         : lastErr?.message ?? "Gemini API error";
 
     return new Response(JSON.stringify({ error: friendly, status: lastErr?.status }), {
