@@ -15,7 +15,7 @@ interface Q {
 }
 
 export function Quiz() {
-  const { settings } = useSettings();
+  const { settings, setLastModelUsed } = useSettings();
   const [q, setQ] = useState<Q | null>(null);
   const [loading, setLoading] = useState(false);
   const [picked, setPicked] = useState<number | null>(null);
@@ -26,11 +26,12 @@ export function Quiz() {
     setPicked(null);
     setQ(null);
     try {
-      const text = await callGemini({
+      const { text, modelUsed } = await callGemini({
         mode: "quiz",
         prompt: "Generate one question.",
         settings: { ...settings, temperature: 0.9 }, // creative pick
       });
+      setLastModelUsed(modelUsed);
       // Strip code fences if any
       const cleaned = text.replace(/```json|```/g, "").trim();
       const parsed = JSON.parse(cleaned);
