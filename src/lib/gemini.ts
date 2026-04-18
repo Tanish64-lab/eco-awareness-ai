@@ -11,7 +11,7 @@ export interface GeminiSettings {
 export const DEFAULT_SETTINGS: GeminiSettings = {
   temperature: 0.7,
   topP: 0.9,
-  model: "gemini-2.0-flash",
+  model: "gemini-2.5-flash",
 };
 
 export interface ChatMsg {

@@ -78,9 +78,7 @@ export function Header() {
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash (fast)</SelectItem>
                     <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
-                    <SelectItem value="gemini-2.5-pro">Gemini 2.5 Pro (deep)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

@@ -9,7 +9,7 @@ export function Footer() {
           <span className="font-display font-semibold text-foreground">EcoSpark</span>
           <span>— AI for a greener planet.</span>
         </div>
-        <p>Built with Gemini · INT428 Project</p>
+        <p>Built with Gemini</p>
       </div>
     </footer>
   );
