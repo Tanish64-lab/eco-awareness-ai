@@ -6,18 +6,19 @@ import { useSettings } from "./SettingsContext";
 import { callGemini } from "@/lib/gemini";
 
 export function DailyTip() {
-  const { settings } = useSettings();
+  const { settings, setLastModelUsed } = useSettings();
   const [tip, setTip] = useState("");
   const [loading, setLoading] = useState(false);
 
   const load = async () => {
     setLoading(true);
     try {
-      const text = await callGemini({
+      const { text, modelUsed } = await callGemini({
         mode: "tip",
         prompt: "One eco-tip.",
         settings: { ...settings, temperature: 0.95 },
       });
+      setLastModelUsed(modelUsed);
       setTip(text.trim());
     } catch {
       setTip("Skip one short car trip this week — walk or cycle instead. Even small swaps reduce CO₂.");

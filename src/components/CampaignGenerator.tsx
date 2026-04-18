@@ -48,7 +48,7 @@ function tryParseJSON(raw: string): CampaignData | null {
 }
 
 export function CampaignGenerator() {
-  const { settings } = useSettings();
+  const { settings, setLastModelUsed } = useSettings();
   const [topic, setTopic] = useState("");
   const [tone, setTone] = useState<Tone>("Creative");
   const [data, setData] = useState<CampaignData | null>(null);
@@ -61,11 +61,12 @@ export function CampaignGenerator() {
     setLoading(true);
     setData(null);
     try {
-      const text = await callGemini({
+      const { text, modelUsed } = await callGemini({
         mode: "campaign",
         prompt: `TONE: ${tone}\nTopic: ${prompt}`,
         settings,
       });
+      setLastModelUsed(modelUsed);
       const parsed = tryParseJSON(text);
       if (!parsed) throw new Error("Could not parse campaign. Try again.");
       setData(parsed);

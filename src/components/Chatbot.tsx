@@ -16,7 +16,7 @@ const STARTERS = [
 ];
 
 export function Chatbot() {
-  const { settings } = useSettings();
+  const { settings, setLastModelUsed } = useSettings();
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -34,8 +34,9 @@ export function Chatbot() {
     setMessages(next);
     setLoading(true);
     try {
-      const reply = await callGemini({ mode: "chat", messages: next, settings });
-      setMessages([...next, { role: "assistant", content: reply }]);
+      const { text, modelUsed } = await callGemini({ mode: "chat", messages: next, settings });
+      setLastModelUsed(modelUsed);
+      setMessages([...next, { role: "assistant", content: text }]);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Chat failed");
       setMessages(messages); // rollback

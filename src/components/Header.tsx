@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Settings as SettingsIcon, Leaf, Sun, Moon } from "lucide-react";
+import { Settings as SettingsIcon, Leaf, Sun, Moon, KeyRound, Eye, EyeOff, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useTheme } from "@/hooks/use-theme";
 import {
   Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger,
@@ -12,9 +13,16 @@ import {
 } from "@/components/ui/select";
 import { useSettings } from "./SettingsContext";
 
+const MODEL_LABELS: Record<string, string> = {
+  "gemini-2.5-flash": "Gemini 2.5 Flash",
+  "gemini-2.5-flash-lite": "Gemini 2.5 Flash-Lite",
+  "gemini-2.0-flash": "Gemini 2.0 Flash",
+};
+
 export function Header() {
   const [open, setOpen] = useState(false);
-  const { settings, setSettings } = useSettings();
+  const [showKey, setShowKey] = useState(false);
+  const { settings, setSettings, lastModelUsed } = useSettings();
   const { theme, toggle } = useTheme();
 
   const scrollTo = (id: string) => {
@@ -45,6 +53,17 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-1">
+          {/* Active model badge */}
+          {lastModelUsed && (
+            <div
+              className="hidden sm:flex items-center gap-1.5 mr-2 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium border border-primary/20"
+              title={`Last response from ${lastModelUsed}${settings.userApiKey ? " · using your API key" : ""}`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+              {MODEL_LABELS[lastModelUsed] ?? lastModelUsed}
+            </div>
+          )}
+
           <Button
             variant="ghost"
             size="icon"
@@ -62,7 +81,7 @@ export function Header() {
                 <SettingsIcon className="w-5 h-5" />
               </Button>
             </SheetTrigger>
-          <SheetContent className="w-full sm:max-w-md">
+          <SheetContent className="w-full sm:max-w-md overflow-y-auto">
             <SheetHeader>
               <SheetTitle className="font-display text-2xl">Model Settings</SheetTitle>
               <SheetDescription>
@@ -71,16 +90,83 @@ export function Header() {
             </SheetHeader>
             <div className="space-y-8 py-8">
               <div className="space-y-3">
-                <Label>Model</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Model</Label>
+                  {lastModelUsed && (
+                    <span className="text-[11px] font-mono text-muted-foreground">
+                      Last used: {MODEL_LABELS[lastModelUsed] ?? lastModelUsed}
+                    </span>
+                  )}
+                </div>
                 <Select
                   value={settings.model}
                   onValueChange={(v) => setSettings({ ...settings, model: v })}
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
+                    <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash — balanced</SelectItem>
+                    <SelectItem value="gemini-2.5-flash-lite">Gemini 2.5 Flash-Lite — fastest, cheapest</SelectItem>
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground">
+                  If your selected model is rate-limited, the app automatically falls back to the other Flash models.
+                </p>
+              </div>
+
+              {/* User API key */}
+              <div className="space-y-3 rounded-xl border border-border/60 bg-muted/40 p-4">
+                <div className="flex items-center gap-2">
+                  <KeyRound className="w-4 h-4 text-primary" />
+                  <Label className="font-semibold">Use your own Gemini API key</Label>
+                </div>
+                <p className="text-xs text-muted-foreground -mt-1">
+                  Optional. If the shared key hits its quota, paste your own key to keep going. Stored only in your browser.
+                </p>
+                <div className="relative">
+                  <Input
+                    type={showKey ? "text" : "password"}
+                    placeholder="AIza…"
+                    value={settings.userApiKey ?? ""}
+                    onChange={(e) => setSettings({ ...settings, userApiKey: e.target.value })}
+                    className="pr-10 font-mono text-xs"
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowKey((s) => !s)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
+                    aria-label={showKey ? "Hide key" : "Show key"}
+                  >
+                    {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <a
+                    href="https://aistudio.google.com/app/apikey"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-primary hover:underline"
+                  >
+                    Get a free key <ExternalLink className="w-3 h-3" />
+                  </a>
+                  {settings.userApiKey && (
+                    <button
+                      type="button"
+                      onClick={() => setSettings({ ...settings, userApiKey: "" })}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      Clear key
+                    </button>
+                  )}
+                </div>
+                <div className="text-[11px] font-medium">
+                  {settings.userApiKey ? (
+                    <span className="text-primary">● Using your personal API key</span>
+                  ) : (
+                    <span className="text-muted-foreground">○ Using the shared app key</span>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-3">
