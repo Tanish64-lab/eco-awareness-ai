@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Settings as SettingsIcon, Leaf } from "lucide-react";
+import { Settings as SettingsIcon, Leaf, Sun, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useTheme } from "@/hooks/use-theme";
 import {
   Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger,
 } from "@/components/ui/sheet";
@@ -14,6 +15,7 @@ import { useSettings } from "./SettingsContext";
 export function Header() {
   const [open, setOpen] = useState(false);
   const { settings, setSettings } = useSettings();
+  const { theme, toggle } = useTheme();
 
   const scrollTo = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -42,12 +44,24 @@ export function Header() {
           <button onClick={() => scrollTo("tip")} className="hover:text-foreground transition-colors">Daily Tip</button>
         </nav>
 
-        <Sheet open={open} onOpenChange={setOpen}>
-          <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label="Model settings">
-              <SettingsIcon className="w-5 h-5" />
-            </Button>
-          </SheetTrigger>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggle}
+            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            className="relative"
+          >
+            <Sun className="w-5 h-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+            <Moon className="absolute w-5 h-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+          </Button>
+
+          <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label="Model settings">
+                <SettingsIcon className="w-5 h-5" />
+              </Button>
+            </SheetTrigger>
           <SheetContent className="w-full sm:max-w-md">
             <SheetHeader>
               <SheetTitle className="font-display text-2xl">Model Settings</SheetTitle>
@@ -113,8 +127,9 @@ export function Header() {
                 </div>
               </div>
             </div>
-          </SheetContent>
-        </Sheet>
+            </SheetContent>
+          </Sheet>
+        </div>
       </div>
     </header>
   );
