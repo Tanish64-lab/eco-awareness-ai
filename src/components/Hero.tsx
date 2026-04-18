@@ -20,17 +20,17 @@ export function Hero() {
 
       <div className="container relative z-10 py-24">
         <div className="max-w-3xl space-y-8 animate-fade-up">
-          <div className="inline-flex items-center gap-2 rounded-full border border-primary-foreground/20 bg-primary-foreground/10 backdrop-blur-sm px-4 py-1.5 text-sm text-primary-foreground">
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 backdrop-blur-sm px-4 py-1.5 text-sm text-white">
             <Sparkles className="w-4 h-4" />
             Powered by Google Gemini
           </div>
 
-          <h1 className="font-display text-5xl sm:text-6xl md:text-7xl font-semibold leading-[1.05] text-primary-foreground">
+          <h1 className="font-display text-5xl sm:text-6xl md:text-7xl font-semibold leading-[1.05] text-white drop-shadow-[0_2px_20px_rgba(0,0,0,0.45)]">
             Spark a <em className="not-italic text-gradient-leaf bg-clip-text">greener</em> tomorrow,
             one campaign at a time.
           </h1>
 
-          <p className="text-lg md:text-xl text-primary-foreground/85 max-w-2xl leading-relaxed">
+          <p className="text-lg md:text-xl text-white/85 max-w-2xl leading-relaxed">
             Generate full environmental awareness campaigns, chat with EcoSage about
             climate &amp; sustainability, and test what you know — all in one place.
           </p>
@@ -38,8 +38,7 @@ export function Hero() {
           <div className="flex flex-wrap gap-4">
             <Button
               size="lg"
-              variant="secondary"
-              className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 font-semibold shadow-leaf"
+              className="bg-white text-foreground hover:bg-white/90 font-semibold shadow-leaf"
               onClick={() => scrollTo("campaign")}
             >
               Generate a campaign
@@ -47,7 +46,7 @@ export function Hero() {
             <Button
               size="lg"
               variant="outline"
-              className="border-primary-foreground/40 bg-transparent text-primary-foreground hover:bg-primary-foreground/10"
+              className="border-white/40 bg-transparent text-white hover:bg-white/10 hover:text-white"
               onClick={() => scrollTo("chat")}
             >
               Talk to EcoSage
@@ -57,7 +56,7 @@ export function Hero() {
 
         <button
           onClick={() => scrollTo("campaign")}
-          className="absolute bottom-8 left-1/2 -translate-x-1/2 text-primary-foreground/80 hover:text-primary-foreground transition-colors"
+          className="absolute bottom-8 left-1/2 -translate-x-1/2 text-white/80 hover:text-white transition-colors"
           aria-label="Scroll down"
         >
           <ArrowDown className="w-6 h-6 animate-bounce" />
