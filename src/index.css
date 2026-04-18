@@ -67,26 +67,56 @@
   }
 
   .dark {
-    --background: 140 25% 8%;
-    --foreground: 44 38% 94%;
-    --card: 140 22% 11%;
-    --card-foreground: 44 38% 94%;
-    --popover: 140 22% 11%;
-    --popover-foreground: 44 38% 94%;
-    --primary: 102 45% 55%;
-    --primary-foreground: 140 30% 10%;
-    --primary-glow: 102 60% 65%;
-    --secondary: 140 18% 18%;
-    --secondary-foreground: 44 38% 94%;
-    --muted: 140 18% 16%;
-    --muted-foreground: 40 15% 65%;
-    --accent: 28 65% 55%;
-    --accent-foreground: 140 30% 10%;
-    --destructive: 8 70% 48%;
-    --destructive-foreground: 44 50% 96%;
-    --border: 140 18% 20%;
-    --input: 140 18% 20%;
-    --ring: 102 45% 55%;
+    /* Rich nighttime forest — deep teal-green base, warm cream text, glowing lime accents */
+    --background: 160 30% 6%;            /* near-black forest */
+    --foreground: 44 35% 92%;            /* warm cream */
+
+    --card: 160 25% 9%;
+    --card-foreground: 44 35% 92%;
+
+    --popover: 160 25% 9%;
+    --popover-foreground: 44 35% 92%;
+
+    /* Brand stays light-on-dark: lime glow as primary, cream text on it */
+    --primary: 102 55% 60%;              /* glowing leaf */
+    --primary-foreground: 160 40% 8%;    /* deep forest reads on lime */
+    --primary-glow: 102 70% 70%;
+
+    --secondary: 160 20% 14%;
+    --secondary-foreground: 44 35% 92%;
+
+    --muted: 160 18% 13%;
+    --muted-foreground: 40 20% 72%;
+
+    --accent: 28 80% 62%;                /* warm terracotta glow */
+    --accent-foreground: 160 40% 8%;
+
+    --destructive: 8 75% 58%;
+    --destructive-foreground: 44 35% 96%;
+
+    --border: 160 18% 18%;
+    --input: 160 18% 18%;
+    --ring: 102 55% 60%;
+
+    /* Gradients tuned for dark — lighter/brighter so text + cards pop */
+    --gradient-hero: linear-gradient(135deg, hsl(160 50% 5% / 0.85), hsl(142 40% 12% / 0.7));
+    --gradient-leaf: linear-gradient(135deg, hsl(142 45% 32%), hsl(102 55% 50%));
+    --gradient-earth: linear-gradient(180deg, hsl(160 30% 6%), hsl(160 25% 9%));
+    --gradient-glow: radial-gradient(circle at 30% 30%, hsl(102 60% 50% / 0.28), transparent 60%);
+
+    /* Shadows — deeper + lime-tinted glow for dark surfaces */
+    --shadow-leaf: 0 20px 50px -20px hsl(160 50% 2% / 0.7);
+    --shadow-soft: 0 10px 30px -15px hsl(160 50% 2% / 0.6);
+    --shadow-glow: 0 0 60px hsl(102 65% 55% / 0.3);
+
+    --sidebar-background: 160 30% 6%;
+    --sidebar-foreground: 44 35% 92%;
+    --sidebar-primary: 102 55% 60%;
+    --sidebar-primary-foreground: 160 40% 8%;
+    --sidebar-accent: 160 20% 14%;
+    --sidebar-accent-foreground: 44 35% 92%;
+    --sidebar-border: 160 18% 18%;
+    --sidebar-ring: 102 55% 60%;
   }
 }
 
