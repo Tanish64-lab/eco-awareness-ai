@@ -3,7 +3,7 @@ import { Header } from "@/components/Header";
 import { Hero } from "@/components/Hero";
 import { CampaignGenerator } from "@/components/CampaignGenerator";
 import { Chatbot } from "@/components/Chatbot";
-import { Quiz } from "@/components/Quiz";
+import { AqiCampaign } from "@/components/AqiCampaign";
 import { DailyTip } from "@/components/DailyTip";
 import { Footer } from "@/components/Footer";
 
@@ -16,7 +16,7 @@ const Index = () => {
           <Hero />
           <CampaignGenerator />
           <Chatbot />
-          <Quiz />
+          <AqiCampaign />
           <DailyTip />
         </main>
         <Footer />
