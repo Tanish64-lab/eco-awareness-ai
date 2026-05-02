@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export type GeminiMode = "campaign" | "chat" | "quiz" | "tip";
+export type GeminiMode = "campaign" | "chat" | "quiz" | "tip" | "aqi";
 
 export interface GeminiSettings {
   temperature: number;
