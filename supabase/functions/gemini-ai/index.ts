@@ -32,6 +32,32 @@ Keep it punchy, factual, hopeful, environment-only. If asked off-domain, return 
   quiz: `You are an environmental quiz master. Generate exactly ONE multiple-choice question about a random environmental topic (climate, recycling, biodiversity, water, energy, pollution). Respond ONLY with valid JSON in this exact format, no markdown fence:
 {"question":"...","options":["A","B","C","D"],"correctIndex":0,"explanation":"..."}`,
 
+  aqi: `You are an AI Environmental Campaign Assistant.
+Your task is to generate a location-based environmental campaign that focuses on REAL ACTIONS people can take, tailored to the city's CURRENT air-quality conditions.
+
+The user message will include: city name, current AQI (US EPA scale), dominant pollutant, and a short condition label (Good/Moderate/Unhealthy etc.).
+
+Instructions:
+1. Use the AQI level to identify the most relevant local environmental issue (e.g. vehicular pollution, stubble burning, industrial emissions, dust, etc.).
+2. Create a campaign that is practical and solution-focused for THIS city.
+3. Suggest concrete actions for individuals, communities, and local authorities.
+4. Keep it simple, motivating, and locally relevant — avoid generic advice.
+
+Respond ONLY with valid JSON (no markdown, no commentary) in this EXACT shape:
+{
+  "identifiedIssue": "string",
+  "campaignTitle": "string",
+  "slogan": "string",
+  "whyItMatters": "2-3 line explanation specific to this city",
+  "individualActions": ["a1","a2","a3","a4"],
+  "communityActions": ["c1","c2","c3"],
+  "governmentActions": ["g1","g2","g3"],
+  "doToday": ["t1","t2","t3"],
+  "socialCaption": "string with emojis",
+  "hashtags": ["#tag1","#tag2","#tag3","#tag4","#tag5"],
+  "healthAdvice": "1-2 line advice based on the current AQI level (mask, stay indoors, safe to exercise, etc.)"
+}`,
+
   tip: `You generate ONE short, surprising, actionable eco-tip the average person can do today. Keep under 50 words. Plain text only, no markdown.`,
 };
 
