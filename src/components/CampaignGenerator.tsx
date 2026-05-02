@@ -1,325 +1,448 @@
 import { useState } from "react";
 import {
-  Megaphone, Loader2, Sparkles, Hash, Image as ImageIcon,
-  Quote, Target, Copy, Check, Scale, Palette, HeartPulse,
+  MapPin, Loader2, Locate, Wind, AlertTriangle, Users, Building2,
+  CheckCircle2, Sparkles, RefreshCw, Image as ImageIcon, Download, HeartPulse, Gauge,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { useSettings } from "./SettingsContext";
 import { callGemini } from "@/lib/gemini";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-const SUGGESTIONS = [
-  "Plastic pollution in oceans",
-  "Air quality in cities",
-  "Deforestation",
-  "Saving water at home",
-  "E-waste recycling",
-];
-
-type Tone = "Formal" | "Creative" | "Emotional";
-
-const TONES: { id: Tone; label: string; desc: string; icon: typeof Scale }[] = [
-  { id: "Formal",    label: "Formal",    desc: "Policy-grade, data-driven", icon: Scale },
-  { id: "Creative",  label: "Creative",  desc: "Playful, witty, bold",      icon: Palette },
-  { id: "Emotional", label: "Emotional", desc: "Heartfelt, human, urgent",  icon: HeartPulse },
-];
-
-interface CampaignData {
-  title: string;
-  tagline: string;
-  slogans: string[];
-  social: { post: string; hashtags: string[] };
-  poster: { headline: string; visual: string };
-  actions: { title: string; detail: string }[];
+interface AqiData {
+  city: string;
+  aqi: number;
+  category: string;
+  color: string;
+  dominant: string;
+  pm25: number;
+  pm10: number;
+  lat: number;
+  lon: number;
 }
 
-function tryParseJSON(raw: string): CampaignData | null {
-  if (!raw) return null;
-  // Strip markdown fences if model added them despite instructions
-  const cleaned = raw.trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
-  try { return JSON.parse(cleaned) as CampaignData; } catch { /* fall through */ }
-  // Last resort: extract first {...} block
-  const m = cleaned.match(/\{[\s\S]*\}/);
-  if (m) { try { return JSON.parse(m[0]) as CampaignData; } catch { /* ignore */ } }
-  return null;
+interface ActionWithEffort { action: string; effort: "Easy" | "Medium" | "Hard" | string }
+
+interface Campaign {
+  identifiedIssue: string;
+  campaignTitle: string;
+  slogan: string;
+  personalHealthImpact: string;
+  whyItMatters: string;
+  individualActions: ActionWithEffort[];
+  communityActions: string[];
+  governmentActions: string[];
+  doToday: string[];
+  impactScore: string;
+  socialCaption: string;
+  hashtags: string[];
+  healthAdvice: string;
+  puterImagePrompt: string;
 }
+
+declare global {
+  interface Window {
+    puter?: {
+      ai: { txt2img: (prompt: string) => Promise<HTMLImageElement | string> };
+    };
+  }
+}
+
+function pm25ToAqi(c: number): number {
+  const bp = [
+    [0, 12, 0, 50],
+    [12.1, 35.4, 51, 100],
+    [35.5, 55.4, 101, 150],
+    [55.5, 150.4, 151, 200],
+    [150.5, 250.4, 201, 300],
+    [250.5, 500.4, 301, 500],
+  ];
+  for (const [cl, ch, il, ih] of bp) {
+    if (c >= cl && c <= ch) return Math.round(((ih - il) / (ch - cl)) * (c - cl) + il);
+  }
+  return c > 500.4 ? 500 : 0;
+}
+
+function aqiCategory(aqi: number): { category: string; color: string } {
+  if (aqi <= 50) return { category: "Good", color: "bg-green-500" };
+  if (aqi <= 100) return { category: "Moderate", color: "bg-yellow-500" };
+  if (aqi <= 150) return { category: "Unhealthy for Sensitive Groups", color: "bg-orange-500" };
+  if (aqi <= 200) return { category: "Unhealthy", color: "bg-red-500" };
+  if (aqi <= 300) return { category: "Very Unhealthy", color: "bg-purple-600" };
+  return { category: "Hazardous", color: "bg-rose-900" };
+}
+
+async function geocode(city: string) {
+  const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en&format=json`);
+  const d = await r.json();
+  if (!d.results?.length) return null;
+  const x = d.results[0];
+  return { lat: x.latitude, lon: x.longitude, name: `${x.name}${x.admin1 ? ", " + x.admin1 : ""}, ${x.country}` };
+}
+
+async function reverseGeocode(lat: number, lon: number): Promise<string> {
+  try {
+    const r = await fetch(`https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lon}&count=1&language=en&format=json`);
+    const d = await r.json();
+    if (d.results?.length) {
+      const x = d.results[0];
+      return `${x.name}${x.admin1 ? ", " + x.admin1 : ""}, ${x.country}`;
+    }
+  } catch { /* ignore */ }
+  return `${lat.toFixed(2)}, ${lon.toFixed(2)}`;
+}
+
+async function fetchAqi(lat: number, lon: number, name: string): Promise<AqiData> {
+  const r = await fetch(
+    `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone,us_aqi&timezone=auto`
+  );
+  const d = await r.json();
+  const c = d.current;
+  const aqi = typeof c.us_aqi === "number" ? Math.round(c.us_aqi) : pm25ToAqi(c.pm2_5 ?? 0);
+  const cat = aqiCategory(aqi);
+  const pollutants: Record<string, number> = {
+    "PM2.5": (c.pm2_5 ?? 0) / 35,
+    "PM10": (c.pm10 ?? 0) / 150,
+    "Ozone": (c.ozone ?? 0) / 100,
+    "NO₂": (c.nitrogen_dioxide ?? 0) / 100,
+    "SO₂": (c.sulphur_dioxide ?? 0) / 75,
+    "CO": (c.carbon_monoxide ?? 0) / 9000,
+  };
+  const dominant = Object.entries(pollutants).sort((a, b) => b[1] - a[1])[0][0];
+  return { city: name, aqi, category: cat.category, color: cat.color, dominant, pm25: c.pm2_5 ?? 0, pm10: c.pm10 ?? 0, lat, lon };
+}
+
+const effortStyle: Record<string, string> = {
+  Easy: "bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30",
+  Medium: "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border-yellow-500/30",
+  Hard: "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30",
+};
+
+const impactStyle: Record<string, string> = {
+  Low: "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400",
+  Medium: "bg-orange-500/15 text-orange-700 dark:text-orange-400",
+  High: "bg-green-500/15 text-green-700 dark:text-green-400",
+};
 
 export function CampaignGenerator() {
   const { settings, setLastModelUsed } = useSettings();
-  const [topic, setTopic] = useState("");
-  const [tone, setTone] = useState<Tone>("Creative");
-  const [data, setData] = useState<CampaignData | null>(null);
+  const [city, setCity] = useState("");
   const [loading, setLoading] = useState(false);
-  const [copied, setCopied] = useState<string | null>(null);
+  const [genLoading, setGenLoading] = useState(false);
+  const [aqi, setAqi] = useState<AqiData | null>(null);
+  const [campaign, setCampaign] = useState<Campaign | null>(null);
+  const [posterUrl, setPosterUrl] = useState<string | null>(null);
+  const [posterLoading, setPosterLoading] = useState(false);
 
-  const generate = async (t?: string) => {
-    const prompt = (t ?? topic).trim();
-    if (!prompt) return;
+  const loadByCity = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!city.trim()) return toast.error("Enter a city name");
     setLoading(true);
-    setData(null);
+    setCampaign(null);
+    setPosterUrl(null);
     try {
-      const { text, modelUsed } = await callGemini({
-        mode: "campaign",
-        prompt: `TONE: ${tone}\nTopic: ${prompt}`,
-        settings,
-      });
-      setLastModelUsed(modelUsed);
-      const parsed = tryParseJSON(text);
-      if (!parsed) throw new Error("Could not parse campaign. Try again.");
-      setData(parsed);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to generate");
-    } finally {
-      setLoading(false);
-    }
+      const g = await geocode(city.trim());
+      if (!g) { toast.error("City not found"); return; }
+      const data = await fetchAqi(g.lat, g.lon, g.name);
+      setAqi(data);
+      generateCampaign(data);
+    } catch {
+      toast.error("Couldn't fetch air quality data.");
+    } finally { setLoading(false); }
   };
 
-  const copy = async (key: string, value: string) => {
-    await navigator.clipboard.writeText(value);
-    setCopied(key);
-    toast.success("Copied to clipboard");
-    setTimeout(() => setCopied(null), 1500);
+  const loadByLocation = () => {
+    if (!navigator.geolocation) return toast.error("Geolocation not supported");
+    setLoading(true);
+    setCampaign(null);
+    setPosterUrl(null);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const name = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
+          const data = await fetchAqi(pos.coords.latitude, pos.coords.longitude, name);
+          setAqi(data);
+          generateCampaign(data);
+        } catch { toast.error("Couldn't fetch air quality."); }
+        finally { setLoading(false); }
+      },
+      () => { toast.error("Location permission denied"); setLoading(false); },
+      { timeout: 10000 }
+    );
+  };
+
+  const generateCampaign = async (data: AqiData) => {
+    setGenLoading(true);
+    setPosterUrl(null);
+    try {
+      const prompt = `City: ${data.city}
+Current US AQI: ${data.aqi} (${data.category})
+Dominant pollutant: ${data.dominant}
+PM2.5: ${data.pm25.toFixed(1)} μg/m³, PM10: ${data.pm10.toFixed(1)} μg/m³
+
+Generate the location-based campaign now.`;
+      const { text, modelUsed } = await callGemini({
+        mode: "aqi",
+        prompt,
+        settings: { ...settings, temperature: 0.8 },
+      });
+      setLastModelUsed(modelUsed);
+      const cleaned = text.replace(/```json|```/g, "").trim();
+      setCampaign(JSON.parse(cleaned));
+    } catch {
+      toast.error("Couldn't generate campaign. Try again.");
+    } finally { setGenLoading(false); }
+  };
+
+  const generatePoster = async () => {
+    if (!campaign?.puterImagePrompt) return;
+    if (!window.puter?.ai?.txt2img) {
+      toast.error("Puter.js not loaded yet. Please retry in a moment.");
+      return;
+    }
+    setPosterLoading(true);
+    setPosterUrl(null);
+    try {
+      const result = await window.puter.ai.txt2img(campaign.puterImagePrompt);
+      // Puter returns either an HTMLImageElement or a string URL/data URL
+      const url = typeof result === "string" ? result : (result as HTMLImageElement).src;
+      setPosterUrl(url);
+      toast.success("Poster generated!");
+    } catch (e) {
+      toast.error("Poster generation failed. Puter.js may require sign-in.");
+      console.error(e);
+    } finally { setPosterLoading(false); }
   };
 
   return (
     <section id="campaign" className="py-24 bg-gradient-earth">
-      <div className="container max-w-6xl">
+      <div className="container max-w-5xl">
         <div className="text-center mb-12 space-y-4">
           <div className="inline-flex items-center gap-2 text-accent text-sm font-semibold uppercase tracking-widest">
-            <Megaphone className="w-4 h-4" /> Campaign Generator
+            <Wind className="w-4 h-4" /> Live AQI Campaign + AI Poster
           </div>
           <h2 className="font-display text-4xl md:text-5xl font-semibold">
-            Turn an issue into a <span className="text-gradient-leaf">movement</span>.
+            Your city. Your air. <span className="text-gradient-leaf">Your action.</span>
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">
-            Pick a tone, drop your topic, and watch a complete awareness kit unfold —
-            tagline, slogans, social copy, poster concept, and actions.
+            Enter a location or use your live position. We pull real-time air quality from Open-Meteo,
+            generate a tailored awareness campaign, and create a poster image with Puter.js.
           </p>
         </div>
 
-        <Card className="p-6 md:p-8 shadow-leaf border-border/60">
-          {/* Tone selector */}
-          <div className="mb-5">
-            <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">
-              Choose a tone
-            </div>
-            <div className="grid grid-cols-3 gap-2 md:gap-3">
-              {TONES.map(({ id, label, desc, icon: Icon }) => {
-                const active = tone === id;
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => setTone(id)}
-                    disabled={loading}
-                    className={cn(
-                      "group relative overflow-hidden rounded-xl border p-3 md:p-4 text-left transition-all",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      active
-                        ? "border-primary bg-gradient-leaf text-primary-foreground shadow-glow"
-                        : "border-border bg-background hover:border-primary/40 hover:bg-muted",
-                    )}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Icon className={cn("w-4 h-4", active ? "" : "text-primary")} />
-                      <span className="font-semibold text-sm md:text-base">{label}</span>
-                    </div>
-                    <div className={cn("text-xs mt-1", active ? "text-primary-foreground/85" : "text-muted-foreground")}>
-                      {desc}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Topic input */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Input
-              placeholder="e.g. Reducing single-use plastics"
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && generate()}
-              className="flex-1 h-12 text-base"
-            />
-            <Button
-              size="lg"
-              onClick={() => generate()}
-              disabled={loading || !topic.trim()}
-              className="bg-gradient-leaf hover:opacity-95 shadow-glow font-semibold"
-            >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              Generate
-            </Button>
-          </div>
-
-          <div className="flex flex-wrap gap-2 mt-4">
-            <span className="text-xs text-muted-foreground self-center mr-1">Try:</span>
-            {SUGGESTIONS.map((s) => (
-              <button
-                key={s}
-                onClick={() => { setTopic(s); generate(s); }}
+        <Card className="p-6 md:p-8 shadow-leaf border-border/60 space-y-6">
+          <form onSubmit={loadByCity} className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="e.g. Delhi, Mumbai, London…"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                className="pl-9"
                 disabled={loading}
-                className="text-xs px-3 py-1.5 rounded-full bg-muted hover:bg-secondary transition-colors disabled:opacity-50"
-              >
-                {s}
-              </button>
-            ))}
-          </div>
+              />
+            </div>
+            <Button type="submit" disabled={loading} className="bg-gradient-leaf shadow-glow">
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Get AQI"}
+            </Button>
+            <Button type="button" variant="outline" onClick={loadByLocation} disabled={loading}>
+              <Locate className="w-4 h-4 mr-1" /> Use my location
+            </Button>
+          </form>
 
-          {loading && !data && (
-            <div className="mt-8 p-6 rounded-xl bg-background border border-border/60 flex items-center gap-3 text-muted-foreground">
-              <Loader2 className="w-5 h-5 animate-spin" />
-              Crafting a {tone.toLowerCase()} campaign…
+          {aqi && (
+            <div className="rounded-2xl border border-border/60 bg-card p-5 space-y-4 animate-fade-up">
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div>
+                  <div className="text-xs text-muted-foreground uppercase tracking-wider">Location</div>
+                  <div className="font-display text-xl font-semibold">{aqi.city}</div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className={cn("w-14 h-14 rounded-xl grid place-items-center text-white font-bold text-xl shadow-md", aqi.color)}>
+                    {aqi.aqi}
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">US AQI</div>
+                    <div className="font-semibold">{aqi.category}</div>
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3 text-sm">
+                <div className="rounded-lg bg-muted p-3">
+                  <div className="text-xs text-muted-foreground">Dominant</div>
+                  <div className="font-semibold">{aqi.dominant}</div>
+                </div>
+                <div className="rounded-lg bg-muted p-3">
+                  <div className="text-xs text-muted-foreground">PM2.5</div>
+                  <div className="font-semibold">{aqi.pm25.toFixed(1)} μg/m³</div>
+                </div>
+                <div className="rounded-lg bg-muted p-3">
+                  <div className="text-xs text-muted-foreground">PM10</div>
+                  <div className="font-semibold">{aqi.pm10.toFixed(1)} μg/m³</div>
+                </div>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Source: Open-Meteo Air Quality API · Live
+              </p>
             </div>
           )}
 
-          {data && (
-            <div className="mt-8 space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-500">
-              {/* Hero title card */}
-              <div className="relative overflow-hidden rounded-2xl bg-gradient-leaf text-primary-foreground p-7 md:p-9 shadow-leaf">
-                <div className="absolute inset-0 bg-gradient-glow opacity-60 pointer-events-none" />
-                <div className="relative">
-                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest opacity-90">
-                    <span className="px-2 py-0.5 rounded-full bg-primary-foreground/15 backdrop-blur">
-                      {tone}
-                    </span>
-                    <span>Campaign</span>
+          {genLoading && (
+            <div className="flex items-center justify-center gap-3 py-8 text-muted-foreground">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              Generating awareness campaign for your area…
+            </div>
+          )}
+
+          {campaign && !genLoading && (
+            <div className="space-y-5 animate-fade-up">
+              <div className="rounded-2xl bg-gradient-leaf p-6 text-primary-foreground shadow-glow">
+                <div className="text-xs uppercase tracking-widest opacity-80">Identified Issue</div>
+                <div className="font-semibold mb-3">{campaign.identifiedIssue}</div>
+                <h3 className="font-display text-3xl font-bold leading-tight">{campaign.campaignTitle}</h3>
+                <p className="italic mt-2 opacity-95">"{campaign.slogan}"</p>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="rounded-xl border-l-4 border-rose-500 bg-rose-500/10 p-4 flex gap-3">
+                  <HeartPulse className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-semibold text-sm mb-1">Personal Health Impact</div>
+                    <p className="text-sm text-muted-foreground">{campaign.personalHealthImpact}</p>
                   </div>
-                  <h3 className="font-display text-3xl md:text-5xl font-semibold mt-3 leading-tight">
-                    {data.title}
-                  </h3>
-                  <p className="mt-3 text-lg md:text-xl opacity-95 italic">
-                    “{data.tagline}”
-                  </p>
+                </div>
+                <div className="rounded-xl border-l-4 border-accent bg-accent/10 p-4 flex gap-3">
+                  <AlertTriangle className="w-5 h-5 text-accent shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-semibold text-sm mb-1">Health advice</div>
+                    <p className="text-sm text-muted-foreground">{campaign.healthAdvice}</p>
+                  </div>
                 </div>
               </div>
 
-              {/* Two-column grid */}
-              <div className="grid md:grid-cols-2 gap-5">
-                {/* Slogans */}
-                <Card className="p-5 border-border/60">
-                  <SectionHead icon={Quote} label="Slogans" />
-                  <ul className="space-y-2.5 mt-3">
-                    {data.slogans?.map((s, i) => (
-                      <li
-                        key={i}
-                        className="group flex items-start gap-3 p-3 rounded-lg bg-muted/60 hover:bg-muted transition-colors"
-                      >
-                        <span className="font-display text-2xl text-primary leading-none mt-0.5">
-                          {String(i + 1).padStart(2, "0")}
-                        </span>
-                        <span className="flex-1 text-foreground/90 text-sm md:text-base">{s}</span>
-                        <CopyBtn
-                          onClick={() => copy(`slogan-${i}`, s)}
-                          copied={copied === `slogan-${i}`}
-                        />
-                      </li>
-                    ))}
+              <div className="rounded-xl bg-muted p-4">
+                <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Why it matters here</div>
+                <p className="text-sm">{campaign.whyItMatters}</p>
+              </div>
+
+              <Card className="p-5 space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2 text-primary font-semibold text-sm">
+                    <Sparkles className="w-4 h-4" /> Individual Actions
+                  </div>
+                  {campaign.impactScore && (
+                    <span className={cn(
+                      "text-xs font-semibold px-2.5 py-1 rounded-full inline-flex items-center gap-1",
+                      impactStyle[campaign.impactScore] ?? "bg-muted text-muted-foreground"
+                    )}>
+                      <Gauge className="w-3 h-3" /> Impact: {campaign.impactScore}
+                    </span>
+                  )}
+                </div>
+                <ul className="space-y-2">
+                  {campaign.individualActions.map((a, i) => (
+                    <li key={i} className="flex items-start gap-3 p-3 rounded-lg bg-muted/60">
+                      <span className="font-display text-lg text-primary leading-none mt-0.5 w-6">
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
+                      <span className="flex-1 text-sm">{a.action}</span>
+                      <span className={cn("text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0", effortStyle[a.effort] ?? "bg-muted")}>
+                        {a.effort}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <Card className="p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-primary font-semibold text-sm">
+                    <Users className="w-4 h-4" /> Community Actions
+                  </div>
+                  <ul className="text-sm space-y-1.5 list-disc pl-4 text-muted-foreground">
+                    {campaign.communityActions.map((a, i) => <li key={i}>{a}</li>)}
                   </ul>
                 </Card>
-
-                {/* Poster */}
-                <Card className="p-5 border-border/60 bg-gradient-to-br from-accent/5 to-primary/5">
-                  <SectionHead icon={ImageIcon} label="Poster Concept" />
-                  <div className="mt-3 rounded-lg border border-dashed border-accent/40 p-5 bg-background/60">
-                    <div className="text-xs uppercase tracking-widest text-accent font-semibold">
-                      Headline
-                    </div>
-                    <div className="font-display text-xl md:text-2xl font-semibold mt-1 text-foreground">
-                      {data.poster?.headline}
-                    </div>
-                    <div className="mt-4 text-xs uppercase tracking-widest text-accent font-semibold">
-                      Visual
-                    </div>
-                    <p className="text-sm text-foreground/80 mt-1 leading-relaxed">
-                      {data.poster?.visual}
-                    </p>
+                <Card className="p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-primary font-semibold text-sm">
+                    <Building2 className="w-4 h-4" /> Government / Authority
                   </div>
+                  <ul className="text-sm space-y-1.5 list-disc pl-4 text-muted-foreground">
+                    {campaign.governmentActions.map((a, i) => <li key={i}>{a}</li>)}
+                  </ul>
                 </Card>
               </div>
 
-              {/* Social post — full width */}
-              <Card className="p-5 border-border/60">
-                <div className="flex items-center justify-between">
-                  <SectionHead icon={Hash} label="Social Media Post" />
-                  <CopyBtn
-                    onClick={() =>
-                      copy(
-                        "social",
-                        `${data.social?.post}\n\n${(data.social?.hashtags ?? []).join(" ")}`,
-                      )
-                    }
-                    copied={copied === "social"}
-                    label="Copy post"
-                  />
+              <Card className="p-5 bg-primary/5 border-primary/30">
+                <div className="flex items-center gap-2 text-primary font-semibold mb-3">
+                  <CheckCircle2 className="w-4 h-4" /> Do today
                 </div>
-                <p className="mt-3 text-foreground/90 leading-relaxed whitespace-pre-line">
-                  {data.social?.post}
-                </p>
-                <div className="flex flex-wrap gap-1.5 mt-4">
-                  {data.social?.hashtags?.map((h) => (
-                    <span
-                      key={h}
-                      className="text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary font-medium"
-                    >
-                      {h.startsWith("#") ? h : `#${h}`}
-                    </span>
+                <ul className="space-y-2">
+                  {campaign.doToday.map((t, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm">
+                      <span className="mt-0.5 w-5 h-5 rounded-full bg-primary text-primary-foreground grid place-items-center text-[11px] font-bold shrink-0">{i + 1}</span>
+                      {t}
+                    </li>
                   ))}
-                </div>
+                </ul>
               </Card>
 
-              {/* Actions */}
-              <Card className="p-5 border-border/60">
-                <SectionHead icon={Target} label="Take Action Today" />
-                <div className="grid md:grid-cols-3 gap-3 mt-3">
-                  {data.actions?.map((a, i) => (
-                    <div
-                      key={i}
-                      className="relative p-4 rounded-xl bg-gradient-to-br from-muted to-background border border-border/60 hover:shadow-soft transition-all"
-                    >
-                      <div className="absolute -top-2 -left-2 w-7 h-7 rounded-full bg-gradient-leaf text-primary-foreground text-xs font-bold flex items-center justify-center shadow-soft">
-                        {i + 1}
-                      </div>
-                      <div className="font-semibold text-foreground mt-1">{a.title}</div>
-                      <div className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
-                        {a.detail}
-                      </div>
-                    </div>
+              <div className="rounded-xl bg-card border border-border p-4 space-y-2">
+                <div className="text-xs uppercase tracking-wider text-muted-foreground">Social Caption</div>
+                <p className="text-sm">{campaign.socialCaption}</p>
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {campaign.hashtags.map((h, i) => (
+                    <span key={i} className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-medium">{h}</span>
                   ))}
                 </div>
+              </div>
+
+              {/* Puter.js poster generator */}
+              <Card className="p-5 border-2 border-dashed border-accent/40 bg-gradient-to-br from-accent/5 to-primary/5 space-y-3">
+                <div className="flex items-center gap-2 text-accent font-semibold text-sm">
+                  <ImageIcon className="w-4 h-4" /> AI Poster (Puter.js)
+                </div>
+                <p className="text-xs text-muted-foreground italic">
+                  Prompt: {campaign.puterImagePrompt}
+                </p>
+                <div className="flex gap-2 flex-wrap">
+                  <Button onClick={generatePoster} disabled={posterLoading} className="bg-gradient-leaf shadow-glow">
+                    {posterLoading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <ImageIcon className="w-4 h-4 mr-1" />}
+                    {posterUrl ? "Regenerate poster" : "Generate poster"}
+                  </Button>
+                  {posterUrl && (
+                    <Button asChild variant="outline">
+                      <a href={posterUrl} download="ecospark-poster.png" target="_blank" rel="noreferrer">
+                        <Download className="w-4 h-4 mr-1" /> Download
+                      </a>
+                    </Button>
+                  )}
+                </div>
+                {posterLoading && (
+                  <div className="aspect-square w-full rounded-xl bg-muted grid place-items-center text-muted-foreground text-sm">
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="w-5 h-5 animate-spin" /> Painting your poster…
+                    </div>
+                  </div>
+                )}
+                {posterUrl && (
+                  <img
+                    src={posterUrl}
+                    alt={`${campaign.campaignTitle} poster`}
+                    className="w-full rounded-xl shadow-leaf border border-border/60"
+                  />
+                )}
               </Card>
+
+              <Button variant="outline" size="sm" onClick={() => aqi && generateCampaign(aqi)} disabled={genLoading}>
+                <RefreshCw className="w-3.5 h-3.5 mr-1" /> Regenerate campaign
+              </Button>
             </div>
           )}
         </Card>
       </div>
     </section>
-  );
-}
-
-function SectionHead({ icon: Icon, label }: { icon: typeof Quote; label: string }) {
-  return (
-    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-      <Icon className="w-4 h-4 text-primary" />
-      {label}
-    </div>
-  );
-}
-
-function CopyBtn({
-  onClick, copied, label,
-}: { onClick: () => void; copied: boolean; label?: string }) {
-  return (
-    <button
-      onClick={onClick}
-      className="text-xs inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-      aria-label="Copy"
-    >
-      {copied ? <Check className="w-3.5 h-3.5 text-primary" /> : <Copy className="w-3.5 h-3.5" />}
-      {label ?? (copied ? "Copied" : "Copy")}
-    </button>
   );
 }
