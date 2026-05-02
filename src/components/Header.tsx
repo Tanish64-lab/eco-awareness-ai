@@ -46,9 +46,9 @@ export function Header() {
         </button>
 
         <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-muted-foreground">
-          <button onClick={() => scrollTo("campaign")} className="hover:text-foreground transition-colors">Campaign</button>
+          <button onClick={() => scrollTo("campaign")} className="hover:text-foreground transition-colors">AQI Campaign</button>
           <button onClick={() => scrollTo("chat")} className="hover:text-foreground transition-colors">Chatbot</button>
-          <button onClick={() => scrollTo("quiz")} className="hover:text-foreground transition-colors">AQI Campaign</button>
+          <button onClick={() => scrollTo("quiz")} className="hover:text-foreground transition-colors">Quiz</button>
           <button onClick={() => scrollTo("tip")} className="hover:text-foreground transition-colors">Daily Tip</button>
         </nav>
 
