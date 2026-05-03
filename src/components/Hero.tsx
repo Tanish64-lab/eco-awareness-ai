@@ -25,9 +25,12 @@ export function Hero() {
             Powered by Google Gemini
           </div>
 
-          <h1 className="font-display text-5xl sm:text-6xl md:text-7xl font-semibold leading-[1.05] text-white drop-shadow-[0_2px_20px_rgba(0,0,0,0.45)]">
-            Spark a <em className="not-italic text-gradient-leaf bg-clip-text">greener</em> tomorrow,
-            one campaign at a time.
+          <h1 className="font-display text-5xl sm:text-6xl md:text-7xl font-semibold leading-[1.15] tracking-tight text-white drop-shadow-[0_2px_20px_rgba(0,0,0,0.45)] pb-2">
+            Spark a{" "}
+            <em className="not-italic bg-gradient-leaf bg-clip-text text-transparent drop-shadow-none [text-shadow:none] inline-block pr-1">
+              greener
+            </em>{" "}
+            tomorrow, one campaign at a time.
           </h1>
 
           <p className="text-lg md:text-xl text-white/85 max-w-2xl leading-relaxed">
