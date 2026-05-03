@@ -286,14 +286,34 @@ Generate the location-based campaign now.`;
         <Card className="p-6 md:p-8 shadow-leaf border-border/60 space-y-6">
           <form onSubmit={loadByCity} className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10" />
               <Input
                 placeholder="e.g. Delhi, Mumbai, London…"
                 value={city}
-                onChange={(e) => setCity(e.target.value)}
+                onChange={(e) => { setCity(e.target.value); setShowSuggestions(true); }}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                 className="pl-9"
                 disabled={loading}
+                autoComplete="off"
               />
+              {showSuggestions && suggestions.length > 0 && (
+                <ul className="absolute z-20 left-0 right-0 top-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-64 overflow-y-auto">
+                  {suggestions.map((s) => (
+                    <li
+                      key={s.id}
+                      onMouseDown={(e) => { e.preventDefault(); pickSuggestion(s); }}
+                      className="px-3 py-2 text-sm hover:bg-muted cursor-pointer flex items-center gap-2"
+                    >
+                      <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      <span className="font-medium">{s.name}</span>
+                      <span className="text-muted-foreground text-xs truncate">
+                        {s.admin1 ? `${s.admin1}, ` : ""}{s.country}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
             <Button type="submit" disabled={loading} className="bg-gradient-leaf shadow-glow">
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Get AQI"}
