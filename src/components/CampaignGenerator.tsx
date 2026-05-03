@@ -42,13 +42,7 @@ interface Campaign {
   puterImagePrompt: string;
 }
 
-declare global {
-  interface Window {
-    puter?: {
-      ai: { txt2img: (prompt: string) => Promise<HTMLImageElement | string> };
-    };
-  }
-}
+import { supabase } from "@/integrations/supabase/client";
 
 function pm25ToAqi(c: number): number {
   const bp = [
@@ -220,7 +214,7 @@ export function CampaignGenerator() {
     setPosterUrl(null);
     try {
       const prompt = `City: ${data.city}
-Current US AQI: ${data.aqi} (${data.category})
+Current AQI: ${data.aqi} (${data.category})
 Dominant pollutant: ${data.dominant}
 PM2.5: ${data.pm25.toFixed(1)} μg/m³, PM10: ${data.pm10.toFixed(1)} μg/m³
 
@@ -249,21 +243,20 @@ Generate the location-based campaign now.`;
 
   const generatePoster = async () => {
     if (!campaign?.puterImagePrompt) return;
-    if (!window.puter?.ai?.txt2img) {
-      toast.error("Puter.js not loaded yet. Please retry in a moment.");
-      return;
-    }
     setPosterLoading(true);
     setPosterUrl(null);
     try {
-      const result = await window.puter.ai.txt2img(campaign.puterImagePrompt);
-      // Puter returns either an HTMLImageElement or a string URL/data URL
-      const url = typeof result === "string" ? result : (result as HTMLImageElement).src;
-      setPosterUrl(url);
+      const { data, error } = await supabase.functions.invoke("hf-image", {
+        body: { prompt: campaign.puterImagePrompt },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (!data?.image) throw new Error("No image returned");
+      setPosterUrl(data.image);
       toast.success("Poster generated!");
     } catch (e) {
-      toast.error("Poster generation failed. Puter.js may require sign-in.");
       console.error(e);
+      toast.error("Poster generation failed. Please try again.");
     } finally { setPosterLoading(false); }
   };
 
@@ -279,7 +272,7 @@ Generate the location-based campaign now.`;
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">
             Enter a location or use your live position. We pull real-time air quality from Open-Meteo,
-            generate a tailored awareness campaign, and create a poster image with Puter.js.
+            generate a tailored awareness campaign, and create a poster image with AI.
           </p>
         </div>
 
@@ -335,7 +328,7 @@ Generate the location-based campaign now.`;
                     {aqi.aqi}
                   </div>
                   <div>
-                    <div className="text-xs text-muted-foreground">US AQI</div>
+                    <div className="text-xs text-muted-foreground">AQI</div>
                     <div className="font-semibold">{aqi.category}</div>
                   </div>
                 </div>
@@ -473,7 +466,7 @@ Generate the location-based campaign now.`;
               {/* Puter.js poster generator */}
               <Card className="p-5 border-2 border-dashed border-accent/40 bg-gradient-to-br from-accent/5 to-primary/5 space-y-3">
                 <div className="flex items-center gap-2 text-accent font-semibold text-sm">
-                  <ImageIcon className="w-4 h-4" /> AI Poster (Puter.js)
+                  <ImageIcon className="w-4 h-4" /> AI Poster
                 </div>
                 <p className="text-xs text-muted-foreground italic">
                   Prompt: {campaign.puterImagePrompt}
