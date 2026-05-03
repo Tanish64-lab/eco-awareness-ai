@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   MapPin, Loader2, Locate, Wind, AlertTriangle, Users, Building2,
   CheckCircle2, Sparkles, RefreshCw, Image as ImageIcon, Download, HeartPulse, Gauge,
