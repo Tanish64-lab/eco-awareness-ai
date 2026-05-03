@@ -214,7 +214,7 @@ export function CampaignGenerator() {
     setPosterUrl(null);
     try {
       const prompt = `City: ${data.city}
-Current US AQI: ${data.aqi} (${data.category})
+Current AQI: ${data.aqi} (${data.category})
 Dominant pollutant: ${data.dominant}
 PM2.5: ${data.pm25.toFixed(1)} μg/m³, PM10: ${data.pm10.toFixed(1)} μg/m³
 
