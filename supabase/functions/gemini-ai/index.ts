@@ -130,7 +130,7 @@ Deno.serve(async (req) => {
     const payload = {
       contents,
       systemInstruction: { parts: [{ text: systemPrompt }] },
-      generationConfig: { temperature, topP, maxOutputTokens: 2048 },
+      generationConfig: { temperature, topP, maxOutputTokens: mode === "aqi" ? 8192 : 2048 },
     };
 
     // Build a fallback chain: requested model first, then alternates that aren't already in the list.

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   MapPin, Loader2, Locate, Wind, AlertTriangle, Users, Building2,
   CheckCircle2, Sparkles, RefreshCw, Image as ImageIcon, Download, HeartPulse, Gauge,
@@ -126,6 +126,15 @@ const impactStyle: Record<string, string> = {
   High: "bg-green-500/15 text-green-700 dark:text-green-400",
 };
 
+interface CitySuggestion {
+  name: string;
+  admin1?: string;
+  country: string;
+  latitude: number;
+  longitude: number;
+  id: number;
+}
+
 export function CampaignGenerator() {
   const { settings, setLastModelUsed } = useSettings();
   const [city, setCity] = useState("");
@@ -135,9 +144,42 @@ export function CampaignGenerator() {
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [posterUrl, setPosterUrl] = useState<string | null>(null);
   const [posterLoading, setPosterLoading] = useState(false);
+  const [suggestions, setSuggestions] = useState<CitySuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  useEffect(() => {
+    const q = city.trim();
+    if (q.length < 2) { setSuggestions([]); return; }
+    const t = setTimeout(async () => {
+      try {
+        const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=6&language=en&format=json`);
+        const d = await r.json();
+        setSuggestions(d.results ?? []);
+      } catch { /* ignore */ }
+    }, 250);
+    return () => clearTimeout(t);
+  }, [city]);
+
+  const pickSuggestion = async (s: CitySuggestion) => {
+    const name = `${s.name}${s.admin1 ? ", " + s.admin1 : ""}, ${s.country}`;
+    setCity(s.name);
+    setShowSuggestions(false);
+    setSuggestions([]);
+    setLoading(true);
+    setCampaign(null);
+    setPosterUrl(null);
+    try {
+      const data = await fetchAqi(s.latitude, s.longitude, name);
+      setAqi(data);
+      generateCampaign(data);
+    } catch {
+      toast.error("Couldn't fetch air quality data.");
+    } finally { setLoading(false); }
+  };
 
   const loadByCity = async (e?: React.FormEvent) => {
     e?.preventDefault();
+    setShowSuggestions(false);
     if (!city.trim()) return toast.error("Enter a city name");
     setLoading(true);
     setCampaign(null);
@@ -189,9 +231,18 @@ Generate the location-based campaign now.`;
         settings: { ...settings, temperature: 0.8 },
       });
       setLastModelUsed(modelUsed);
-      const cleaned = text.replace(/```json|```/g, "").trim();
-      setCampaign(JSON.parse(cleaned));
-    } catch {
+      let cleaned = text.replace(/```json|```/g, "").trim();
+      const first = cleaned.indexOf("{");
+      const last = cleaned.lastIndexOf("}");
+      if (first !== -1 && last !== -1) cleaned = cleaned.slice(first, last + 1);
+      try {
+        setCampaign(JSON.parse(cleaned));
+      } catch (parseErr) {
+        console.error("Campaign JSON parse failed. Raw text:", text);
+        toast.error("Response was incomplete. Please try again.");
+      }
+    } catch (err) {
+      console.error("Campaign generation error:", err);
       toast.error("Couldn't generate campaign. Try again.");
     } finally { setGenLoading(false); }
   };
@@ -235,14 +286,34 @@ Generate the location-based campaign now.`;
         <Card className="p-6 md:p-8 shadow-leaf border-border/60 space-y-6">
           <form onSubmit={loadByCity} className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10" />
               <Input
                 placeholder="e.g. Delhi, Mumbai, London…"
                 value={city}
-                onChange={(e) => setCity(e.target.value)}
+                onChange={(e) => { setCity(e.target.value); setShowSuggestions(true); }}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                 className="pl-9"
                 disabled={loading}
+                autoComplete="off"
               />
+              {showSuggestions && suggestions.length > 0 && (
+                <ul className="absolute z-20 left-0 right-0 top-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-64 overflow-y-auto">
+                  {suggestions.map((s) => (
+                    <li
+                      key={s.id}
+                      onMouseDown={(e) => { e.preventDefault(); pickSuggestion(s); }}
+                      className="px-3 py-2 text-sm hover:bg-muted cursor-pointer flex items-center gap-2"
+                    >
+                      <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      <span className="font-medium">{s.name}</span>
+                      <span className="text-muted-foreground text-xs truncate">
+                        {s.admin1 ? `${s.admin1}, ` : ""}{s.country}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
             <Button type="submit" disabled={loading} className="bg-gradient-leaf shadow-glow">
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Get AQI"}
