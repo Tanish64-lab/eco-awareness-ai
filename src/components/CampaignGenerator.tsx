@@ -272,7 +272,7 @@ Generate the location-based campaign now.`;
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">
             Enter a location or use your live position. We pull real-time air quality from Open-Meteo,
-            generate a tailored awareness campaign, and create a poster image with Puter.js.
+            generate a tailored awareness campaign, and create a poster image with AI.
           </p>
         </div>
 
