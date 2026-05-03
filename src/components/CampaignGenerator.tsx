@@ -243,21 +243,20 @@ Generate the location-based campaign now.`;
 
   const generatePoster = async () => {
     if (!campaign?.puterImagePrompt) return;
-    if (!window.puter?.ai?.txt2img) {
-      toast.error("Puter.js not loaded yet. Please retry in a moment.");
-      return;
-    }
     setPosterLoading(true);
     setPosterUrl(null);
     try {
-      const result = await window.puter.ai.txt2img(campaign.puterImagePrompt);
-      // Puter returns either an HTMLImageElement or a string URL/data URL
-      const url = typeof result === "string" ? result : (result as HTMLImageElement).src;
-      setPosterUrl(url);
+      const { data, error } = await supabase.functions.invoke("hf-image", {
+        body: { prompt: campaign.puterImagePrompt },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (!data?.image) throw new Error("No image returned");
+      setPosterUrl(data.image);
       toast.success("Poster generated!");
     } catch (e) {
-      toast.error("Poster generation failed. Puter.js may require sign-in.");
       console.error(e);
+      toast.error("Poster generation failed. Please try again.");
     } finally { setPosterLoading(false); }
   };
 
