@@ -328,7 +328,7 @@ Generate the location-based campaign now.`;
                     {aqi.aqi}
                   </div>
                   <div>
-                    <div className="text-xs text-muted-foreground">US AQI</div>
+                    <div className="text-xs text-muted-foreground">AQI</div>
                     <div className="font-semibold">{aqi.category}</div>
                   </div>
                 </div>
