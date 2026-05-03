@@ -42,13 +42,7 @@ interface Campaign {
   puterImagePrompt: string;
 }
 
-declare global {
-  interface Window {
-    puter?: {
-      ai: { txt2img: (prompt: string) => Promise<HTMLImageElement | string> };
-    };
-  }
-}
+import { supabase } from "@/integrations/supabase/client";
 
 function pm25ToAqi(c: number): number {
   const bp = [
