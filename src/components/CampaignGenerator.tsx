@@ -466,7 +466,7 @@ Generate the location-based campaign now.`;
               {/* Puter.js poster generator */}
               <Card className="p-5 border-2 border-dashed border-accent/40 bg-gradient-to-br from-accent/5 to-primary/5 space-y-3">
                 <div className="flex items-center gap-2 text-accent font-semibold text-sm">
-                  <ImageIcon className="w-4 h-4" /> AI Poster (Puter.js)
+                  <ImageIcon className="w-4 h-4" /> AI Poster
                 </div>
                 <p className="text-xs text-muted-foreground italic">
                   Prompt: {campaign.puterImagePrompt}
