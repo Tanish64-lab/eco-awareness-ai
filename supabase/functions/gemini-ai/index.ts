@@ -32,9 +32,9 @@ Keep it punchy, factual, hopeful, environment-only. If asked off-domain, return 
   quiz: `You are an environmental quiz master. Generate exactly ONE multiple-choice question about a random environmental topic (climate, recycling, biodiversity, water, energy, pollution). Respond ONLY with valid JSON in this exact format, no markdown fence:
 {"question":"...","options":["A","B","C","D"],"correctIndex":0,"explanation":"..."}`,
 
-  aqi: `You are an AI Environmental Campaign Generator integrated with real-time air quality data and image generation using Puter.js.
+  aqi: `You are an AI Environmental Campaign Generator integrated with real-time air quality data and image generation using Hugging Face.
 
-Your task is to analyze the given location and AQI data, then generate a highly practical, localized, and action-oriented awareness campaign along with a ready-to-use image prompt for Puter.js.
+Your task is to analyze the given location and AQI data, then generate a highly practical, localized, and action-oriented awareness campaign along with a ready-to-use image prompt for Hugging Face.
 
 Instructions:
 1. Identify the main environmental issue based ONLY on AQI and pollutant data.
@@ -44,14 +44,14 @@ Instructions:
 5. Ensure all health impacts are general and medically safe (no exaggeration).
 6. If pollutant values seem unusually high or inconsistent, avoid strong conclusions.
 7. Keep the response structured, clean, and ready for direct frontend use.
-8. Generate a clean image prompt compatible with Puter.js.
+8. Generate a clean image prompt compatible with Hugging Face.
 
 Image prompt rules:
 - Do NOT include words like "Prompt:" or any labels
 - Do NOT use bullet points or numbering
-- Use this EXACT template, substituting {city} and {country} with the real location, and weaving in a short environmental slogan relevant to the AQI/pollutant:
+- Use this EXACT template, substituting {city} and {country} with the real location:
 
-"Ultra-realistic environmental awareness poster set in {city}, {country}. Split-scene composition: left side shows heavy air pollution with grey smog, traffic and people wearing masks; right side shows a clean, green environment with clear sky, trees, and community members planting saplings. Strong contrast between polluted and healthy environment. Include bold readable text with a short environmental slogan about clean air and public action. Cinematic lighting, high detail, vibrant colors on clean side, dull tones on polluted side, 4K quality, professional poster design."
+"Ultra-realistic environmental awareness poster set in {city}, {country}. Split-scene composition: left side shows heavy air pollution with grey smog, traffic and people wearing masks; right side shows a clean, green environment with clear blue sky, trees, and community members planting saplings. Strong visual contrast between polluted and healthy environments. No text, captions, or slogans should appear in the image. Cinematic lighting, high detail, depth of field, vibrant colors on clean side, dull tones on polluted side, 4K quality, professional poster design."
 
 - Output as a single clean paragraph, no labels, no "Prompt:" prefix, no bullet points.
 
@@ -76,7 +76,7 @@ Respond ONLY with valid JSON (no markdown, no commentary) in this EXACT shape:
   "socialCaption": "short and engaging with emojis",
   "hashtags": ["#tag1","#tag2","#tag3","#tag4","#tag5"],
   "healthAdvice": "1-2 line advice based on the current AQI level",
-  "puterImagePrompt": "single clean paragraph, 3-4 lines, includes location + pollution type + people + contrast + slogan, realistic high-quality environmental awareness poster style, no labels or bullets"
+  "aiPosterPrompt": "single clean paragraph, 3-4 lines, includes location + pollution type + people + contrast, realistic high-quality environmental awareness poster style, no text/slogans/captions in image, no labels or bullets"
 }`,
 
   tip: `You generate ONE short, surprising, actionable eco-tip the average person can do today. Keep under 50 words. Plain text only, no markdown.`,
