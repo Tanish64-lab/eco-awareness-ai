@@ -24,26 +24,47 @@ Deno.serve(async (req) => {
       });
     }
 
-    const modelId = model || "black-forest-labs/FLUX.1-schnell";
-    const r = await fetch(`https://api-inference.huggingface.co/models/${modelId}`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${HF_KEY}`,
-        "Content-Type": "application/json",
-        Accept: "image/png",
-      },
-      body: JSON.stringify({ inputs: prompt, options: { wait_for_model: true } }),
-    });
+    const candidates = model
+      ? [model]
+      : [
+          "black-forest-labs/FLUX.1-schnell",
+          "stabilityai/stable-diffusion-xl-base-1.0",
+          "stabilityai/stable-diffusion-2-1",
+        ];
 
-    if (!r.ok) {
-      const errText = await r.text();
-      console.error("HF error", r.status, errText);
-      return new Response(JSON.stringify({ error: `HF API ${r.status}: ${errText.slice(0, 300)}` }), {
+    let r: Response | null = null;
+    let lastErr = "";
+    let usedModel = "";
+
+    for (const modelId of candidates) {
+      const url = `https://router.huggingface.co/hf-inference/models/${modelId}`;
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${HF_KEY}`,
+          "Content-Type": "application/json",
+          Accept: "image/png",
+        },
+        body: JSON.stringify({ inputs: prompt, options: { wait_for_model: true } }),
+      });
+
+      if (resp.ok) {
+        r = resp;
+        usedModel = modelId;
+        break;
+      }
+      lastErr = `${modelId} -> ${resp.status}: ${(await resp.text()).slice(0, 200)}`;
+      console.error("HF model failed:", lastErr);
+    }
+
+    if (!r) {
+      return new Response(JSON.stringify({ error: `All HF models failed. Last: ${lastErr}` }), {
         status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    console.log("HF success with model:", usedModel);
     const buf = await r.arrayBuffer();
     // base64 encode
     const bytes = new Uint8Array(buf);
