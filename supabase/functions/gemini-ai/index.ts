@@ -49,9 +49,11 @@ Instructions:
 Image prompt rules:
 - Do NOT include words like "Prompt:" or any labels
 - Do NOT use bullet points or numbering
-- Single clean paragraph (3-4 lines max)
-- Include: location, pollution type, people (masks or action), contrast (polluted vs clean), campaign slogan
-- Style: realistic, high-quality environmental awareness poster
+- Use this EXACT template, substituting {city} and {country} with the real location, and weaving in a short environmental slogan relevant to the AQI/pollutant:
+
+"Ultra-realistic environmental awareness poster set in {city}, {country}. Split-scene composition: left side shows heavy air pollution with grey smog, traffic and people wearing masks; right side shows a clean, green environment with clear sky, trees, and community members planting saplings. Strong contrast between polluted and healthy environment. Include bold readable text with a short environmental slogan about clean air and public action. Cinematic lighting, high detail, vibrant colors on clean side, dull tones on polluted side, 4K quality, professional poster design."
+
+- Output as a single clean paragraph, no labels, no "Prompt:" prefix, no bullet points.
 
 Respond ONLY with valid JSON (no markdown, no commentary) in this EXACT shape:
 {
