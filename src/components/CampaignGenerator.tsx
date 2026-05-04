@@ -39,7 +39,7 @@ interface Campaign {
   socialCaption: string;
   hashtags: string[];
   healthAdvice: string;
-  puterImagePrompt: string;
+  aiPosterPrompt: string;
 }
 
 import { supabase } from "@/integrations/supabase/client";
@@ -242,12 +242,12 @@ Generate the location-based campaign now.`;
   };
 
   const generatePoster = async () => {
-    if (!campaign?.puterImagePrompt) return;
+    if (!campaign?.aiPosterPrompt) return;
     setPosterLoading(true);
     setPosterUrl(null);
     try {
       const { data, error } = await supabase.functions.invoke("hf-image", {
-        body: { prompt: campaign.puterImagePrompt },
+        body: { prompt: campaign.aiPosterPrompt },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -469,7 +469,7 @@ Generate the location-based campaign now.`;
                   <ImageIcon className="w-4 h-4" /> AI Poster
                 </div>
                 <p className="text-xs text-muted-foreground italic">
-                  Prompt: {campaign.puterImagePrompt}
+                  Prompt: {campaign.aiPosterPrompt}
                 </p>
                 <div className="flex gap-2 flex-wrap">
                   <Button onClick={generatePoster} disabled={posterLoading} className="bg-gradient-leaf shadow-glow">
