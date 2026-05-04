@@ -90,22 +90,32 @@ async function reverseGeocode(lat: number, lon: number): Promise<string> {
 
 async function fetchAqi(lat: number, lon: number, name: string): Promise<AqiData> {
   const r = await fetch(
-    `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone,us_aqi&timezone=auto`
+    `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=pm10,pm2_5&timezone=auto`
   );
   const d = await r.json();
-  const c = d.current;
-  const aqi = typeof c.us_aqi === "number" ? Math.round(c.us_aqi) : pm25ToAqi(c.pm2_5 ?? 0);
+  const times: string[] = d?.hourly?.time ?? [];
+  const pm25Arr: (number | null)[] = d?.hourly?.pm2_5 ?? [];
+  const pm10Arr: (number | null)[] = d?.hourly?.pm10 ?? [];
+
+  // Pick the latest hour that has valid data, preferring the one closest to "now"
+  const now = Date.now();
+  let idx = -1;
+  for (let i = times.length - 1; i >= 0; i--) {
+    const t = new Date(times[i]).getTime();
+    if (t <= now && pm25Arr[i] != null) { idx = i; break; }
+  }
+  if (idx === -1) {
+    for (let i = times.length - 1; i >= 0; i--) {
+      if (pm25Arr[i] != null) { idx = i; break; }
+    }
+  }
+
+  const pm25 = idx >= 0 ? (pm25Arr[idx] ?? 0) : 0;
+  const pm10 = idx >= 0 ? (pm10Arr[idx] ?? 0) : 0;
+  const aqi = pm25ToAqi(pm25);
   const cat = aqiCategory(aqi);
-  const pollutants: Record<string, number> = {
-    "PM2.5": (c.pm2_5 ?? 0) / 35,
-    "PM10": (c.pm10 ?? 0) / 150,
-    "Ozone": (c.ozone ?? 0) / 100,
-    "NO₂": (c.nitrogen_dioxide ?? 0) / 100,
-    "SO₂": (c.sulphur_dioxide ?? 0) / 75,
-    "CO": (c.carbon_monoxide ?? 0) / 9000,
-  };
-  const dominant = Object.entries(pollutants).sort((a, b) => b[1] - a[1])[0][0];
-  return { city: name, aqi, category: cat.category, color: cat.color, dominant, pm25: c.pm2_5 ?? 0, pm10: c.pm10 ?? 0, lat, lon };
+  const dominant = pm25 / 35 >= pm10 / 150 ? "PM2.5" : "PM10";
+  return { city: name, aqi, category: cat.category, color: cat.color, dominant, pm25, pm10, lat, lon };
 }
 
 const effortStyle: Record<string, string> = {
